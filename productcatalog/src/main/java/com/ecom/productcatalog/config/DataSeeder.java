@@ -1,22 +1,34 @@
 package com.ecom.productcatalog.config;
 
-import com.ecom.productcatalog.model.Category;
+import com.ecom.productcatalog.model.*;
 import com.ecom.productcatalog.model.Product;
-import com.ecom.productcatalog.repository.CategoryRepository;
-import com.ecom.productcatalog.repository.ProductRepository;
+import com.ecom.productcatalog.model.Role;
+import com.ecom.productcatalog.repository.*;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.Set;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
 
-    public DataSeeder(ProductRepository productRepository, CategoryRepository categoryRepository) {
+    public DataSeeder(ProductRepository productRepository,
+                      CategoryRepository categoryRepository,
+                      RoleRepository roleRepository,
+                      UserRepository userRepository,
+                      PasswordEncoder passwordEncoder) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.roleRepository = roleRepository;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -69,6 +81,34 @@ public class DataSeeder implements CommandLineRunner {
         bed.setCategory(electronics);
 
         productRepository.saveAll(Arrays.asList(phone, laptop, jacket, bed));
+
+        // Create Roles if not exists
+        if (roleRepository.findAll().isEmpty()) {
+            roleRepository.saveAll(Arrays.asList(
+                    new Role(null, Role.RoleName.ROLE_USER),
+                    new Role(null, Role.RoleName.ROLE_ADMIN)
+            ));
+        }
+
+        // Create sample users if not exist
+        if (userRepository.findAll().isEmpty()) {
+            Role userRole = roleRepository.findByName(Role.RoleName.ROLE_USER).orElseThrow();
+            Role adminRole = roleRepository.findByName(Role.RoleName.ROLE_ADMIN).orElseThrow();
+
+            User user = new User();
+            user.setUsername("user");
+            user.setEmail("user@example.com");
+            user.setPassword(passwordEncoder.encode("user123"));
+            user.setRoles(Set.of(userRole));
+
+            User admin = new User();
+            admin.setUsername("admin");
+            admin.setEmail("admin@example.com");
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setRoles(Set.of(adminRole));
+
+            userRepository.saveAll(Arrays.asList(user, admin));
+        }
 
     }
 }
