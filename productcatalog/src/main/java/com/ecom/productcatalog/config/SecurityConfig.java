@@ -33,11 +33,16 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // Đăng ký, đăng nhập
-                        .requestMatchers("/api/products/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER") // mọi người đều xem được
-                        .requestMatchers("/api/products/**").hasAuthority("ROLE_ADMIN") // chỉ ADMIN mới thêm/sửa/xoá
+                        .requestMatchers("/api/auth/**").permitAll()  // Allow authentication endpoints
+                        .requestMatchers("/api/products/**").permitAll()  // Allow public access to all product endpoints
+
+                        // Restrict modify (POST/PUT/DELETE) actions on products to ADMIN only
+                        .requestMatchers("/api/products/**").hasAuthority("ROLE_ADMIN")
+
+                        // Categories accessible to authenticated roles
                         .requestMatchers("/api/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER")
-                        .anyRequest().authenticated()
+
+                        .anyRequest().authenticated()  // Other endpoints require authentication
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
