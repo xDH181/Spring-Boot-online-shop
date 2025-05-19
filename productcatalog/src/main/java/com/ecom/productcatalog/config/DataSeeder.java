@@ -1,16 +1,29 @@
 package com.ecom.productcatalog.config;
 
-import com.ecom.productcatalog.model.*;
-import com.ecom.productcatalog.repository.*;
+import com.ecom.productcatalog.model.Category;
+import com.ecom.productcatalog.model.Product;
+import com.ecom.productcatalog.model.Role;
+import com.ecom.productcatalog.model.User;
+import com.ecom.productcatalog.repository.CategoryRepository;
+import com.ecom.productcatalog.repository.ProductRepository;
+import com.ecom.productcatalog.repository.RoleRepository;
+import com.ecom.productcatalog.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional; // Quan trọng cho seeder
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
+    private static final Logger logger = LoggerFactory.getLogger(DataSeeder.class);
+
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final RoleRepository roleRepository;
@@ -30,117 +43,90 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     @Override
+    @Transactional // Chạy seeder trong một transaction
     public void run(String... args) throws Exception {
-        // Clear all existing data
-        productRepository.deleteAll();
-        categoryRepository.deleteAll();
-
-        // Create Categories
-        Category electronics = new Category();
-        electronics.setName("Electronics");
-
-        Category clothing = new Category();
-        clothing.setName("Clothing");
-
-        Category home = new Category();
-        home.setName("Home and Kitchen");
-
-        categoryRepository.save(electronics);
-        categoryRepository.save(clothing);
-        categoryRepository.save(home);
-
-        // Create Products
-        Product phone = new Product();
-        phone.setName("iPhone 14");
-        phone.setDescription("Latest iPhone model with stunning features.");
-        phone.setImageUrl("https://cdn2.fptshop.com.vn/unsafe/828x0/filters:format(webp):quality(75)/2022_10_28_638025679600546363_iPhone%2014%20(16).jpg");
-        phone.setPrice(999.00);
-        phone.setCategory(electronics);
-
-        Product laptop = new Product();
-        laptop.setName("MacBook Pro 16\"");
-        laptop.setDescription("Powerful laptop with M1 Pro chip.");
-        laptop.setImageUrl("https://shopdunk.com/images/thumbs/0027584_macbook-pro-16-m1-pro-16-core16gb512gb-chinh-hang-cu-dep.png");
-        laptop.setPrice(2499.00);
-        laptop.setCategory(electronics);
-
-        Product jacket = new Product();
-        jacket.setName("North Face Jacket");
-        jacket.setDescription("Waterproof and insulated jacket for winter.");
-        jacket.setImageUrl("https://cdn-images.farfetch-contents.com/26/05/10/11/26051011_56214957_1000.jpg");
-        jacket.setPrice(199.00);
-        jacket.setCategory(clothing);
-
-        Product bed = new Product();
-        bed.setName("King Size Bed");
-        bed.setDescription("Comfortable king size bed with memory foam mattress.");
-        bed.setImageUrl("https://www.laura-james.co.uk/cdn/shop/files/cavill-grey-fabric-king-size-bed-and-mattress-laura-james-1.png?v=1713535674");
-        bed.setPrice(1500.00);
-        bed.setCategory(home);
-
-        Product tv = new Product();
-        tv.setName("Samsung 55\" 4K TV");
-        tv.setDescription("Smart TV with UHD resolution and built-in streaming apps.");
-        tv.setImageUrl("https://cdn.mediamart.vn/images/product/smart-tivi-samsung-4k-55-inch-55au7002-uhd_972fc278.jpg");
-        tv.setPrice(899.00);
-        tv.setCategory(electronics);
-
-        Product headphones = new Product();
-        headphones.setName("Sony WH-1000XM4");
-        headphones.setDescription("Noise-canceling wireless headphones.");
-        headphones.setImageUrl("https://bcec.vn/upload/original-image/cdn1/images/202203/source_img/tai-nghe-sony-wh-1000xm4-P6707-1647506169415.jpg");
-        headphones.setPrice(348.00);
-        headphones.setCategory(electronics);
-
-        Product sneakers = new Product();
-        sneakers.setName("Nike Air Max 270");
-        sneakers.setDescription("Iconic running shoes with cushioned sole.");
-        sneakers.setImageUrl("https://ash.vn/cdn/shop/files/3cf5361fd2872a0fa2deec7d7eba8375_1800x.jpg?v=1734423911");
-        sneakers.setPrice(150.00);
-        sneakers.setCategory(clothing);
-
-        Product sofa = new Product();
-        sofa.setName("Modern Sofa");
-        sofa.setDescription("Comfortable and stylish 3-seat sofa.");
-        sofa.setImageUrl("https://product.hstatic.net/200000619773/product/sofa_cong_hien_dai_-_modern_curved_sofa_1_c05b7f4f996b458ea1e627920ff8e5b4_master.png");
-        sofa.setPrice(1200.00);
-        sofa.setCategory(home);
-
-        Product camera = new Product();
-        camera.setName("Canon EOS R5");
-        camera.setDescription("Full-frame mirrorless camera with 8K video.");
-        camera.setImageUrl("https://tokyocamera.vn/wp-content/uploads/2023/04/Canon-EOS-R5.jpg");
-        camera.setPrice(3899.00);
-        camera.setCategory(electronics);
-
-        productRepository.saveAll(Arrays.asList(phone, laptop, jacket, bed, tv, headphones, sneakers, sofa, camera));
+        logger.info("Starting data seeding process...");
 
         // Create Roles if not exists
-        if (roleRepository.findAll().isEmpty()) {
-            roleRepository.saveAll(Arrays.asList(
-                    new Role(null, Role.RoleName.ROLE_USER),
-                    new Role(null, Role.RoleName.ROLE_ADMIN)
-            ));
-        }
+        Role roleUser = createRoleIfNotFound(Role.RoleName.ROLE_USER);
+        Role roleAdmin = createRoleIfNotFound(Role.RoleName.ROLE_ADMIN);
 
         // Create sample users if not exist
-        if (userRepository.findAll().isEmpty()) {
-            Role userRole = roleRepository.findByName(Role.RoleName.ROLE_USER).orElseThrow();
-            Role adminRole = roleRepository.findByName(Role.RoleName.ROLE_ADMIN).orElseThrow();
+        createUserIfNotFound("user", "user@example.com", "user123", Set.of(roleUser));
+        createUserIfNotFound("admin", "admin@example.com", "admin123", Set.of(roleAdmin, roleUser));
 
-            User user = new User();
-            user.setUsername("user");
-            user.setEmail("user@example.com");
-            user.setPassword(passwordEncoder.encode("user123"));
-            user.setRoles(Set.of(userRole));
+        // Create Categories if they don't exist
+        Category electronics = createCategoryIfNotFound("Electronics");
+        Category clothing = createCategoryIfNotFound("Clothing");
+        Category home = createCategoryIfNotFound("Home and Kitchen");
 
-            User admin = new User();
-            admin.setUsername("admin");
-            admin.setEmail("admin@example.com");
-            admin.setPassword(passwordEncoder.encode("admin123"));
-            admin.setRoles(Set.of(adminRole));
+        // Create Products if the repository is empty (hoặc logic kiểm tra khác)
+        if (productRepository.count() == 0) {
+            logger.info("No products found, seeding sample products...");
+            Product phone = new Product();
+            phone.setName("iPhone 15 Pro");
+            phone.setDescription("Latest iPhone model with stunning features and A17 Bionic chip.");
+            phone.setImageUrl("https://cdn2.fptshop.com.vn/unsafe/828x0/filters:format(webp):quality(75)/2022_10_28_638025679600546363_iPhone%2014%20(16).jpg");
+            phone.setPrice(1099.00);
+            phone.setCategory(electronics);
+            phone.setStockQuantity(50);
 
-            userRepository.saveAll(Arrays.asList(user, admin));
+            Product laptop = new Product();
+            laptop.setName("MacBook Pro 16\" M3 Max");
+            laptop.setDescription("Powerful laptop with M3 Max chip for professionals.");
+            laptop.setImageUrl("https://shopdunk.com/images/thumbs/0027584_macbook-pro-16-m1-pro-16-core16gb512gb-chinh-hang-cu-dep.png");
+            laptop.setPrice(2999.00);
+            laptop.setCategory(electronics);
+            laptop.setStockQuantity(30);
+
+            // Thêm các sản phẩm khác tương tự...
+            // Product jacket = new Product(); ... jacket.setStockQuantity(100);
+            // Product bed = new Product(); ... bed.setStockQuantity(10);
+            // Product tv = new Product(); ... tv.setStockQuantity(25);
+            // Product headphones = new Product(); ... headphones.setStockQuantity(75);
+            // Product sneakers = new Product(); ... sneakers.setStockQuantity(120);
+            // Product sofa = new Product(); ... sofa.setStockQuantity(5);
+            // Product camera = new Product(); ... camera.setStockQuantity(15);
+
+            productRepository.saveAll(Arrays.asList(phone, laptop /*, jacket, bed, tv, headphones, sneakers, sofa, camera */));
+            logger.info("Sample products seeded.");
+        } else {
+            logger.info("Products already exist, skipping product seeding.");
         }
+
+        logger.info("Data seeding process completed.");
+    }
+
+    private Role createRoleIfNotFound(Role.RoleName roleName) {
+        Optional<Role> roleOpt = roleRepository.findByName(roleName);
+        if (roleOpt.isEmpty()) {
+            Role newRole = new Role(null, roleName);
+            logger.info("Creating role: {}", roleName);
+            return roleRepository.save(newRole);
+        }
+        return roleOpt.get();
+    }
+
+    private void createUserIfNotFound(String username, String email, String password, Set<Role> roles) {
+        if (!userRepository.existsByUsername(username)) {
+            User user = new User();
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(password));
+            user.setRoles(new HashSet<>(roles)); // Tạo một Set mới để đảm bảo tính thay đổi (modifiable)
+            logger.info("Creating user: {}", username);
+            userRepository.save(user);
+        }
+    }
+
+    private Category createCategoryIfNotFound(String categoryName) {
+        Optional<Category> categoryOpt = categoryRepository.findByName(categoryName); // Giả sử bạn đã thêm findByName vào CategoryRepository
+        if (categoryOpt.isEmpty()) {
+            Category newCategory = new Category();
+            newCategory.setName(categoryName);
+            logger.info("Creating category: {}", categoryName);
+            return categoryRepository.save(newCategory);
+        }
+        return categoryOpt.get();
     }
 }

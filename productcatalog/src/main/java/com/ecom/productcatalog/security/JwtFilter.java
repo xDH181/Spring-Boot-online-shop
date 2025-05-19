@@ -29,7 +29,7 @@ public class JwtFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
-
+        //////////////////////////////////////////////////////////1
         String authHeader = request.getHeader("Authorization");
 
         String jwt = null;
@@ -39,7 +39,7 @@ public class JwtFilter extends OncePerRequestFilter {
             jwt = authHeader.substring(7);
             username = jwtUtils.extractUsername(jwt);
         }
-
+        /// ////////////////////////////////////////////////////////2
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             if (jwtUtils.isTokenValid(jwt, userDetails)) {
