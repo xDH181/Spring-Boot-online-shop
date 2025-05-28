@@ -14,12 +14,12 @@ import com.ecom.productcatalog.model.User;
 import com.ecom.productcatalog.repository.CustomerOrderRepository;
 import com.ecom.productcatalog.repository.ProductRepository;
 import com.ecom.productcatalog.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException; // Đảm bảo import đúng
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+// import java.time.LocalDateTime; // Không cần thiết ở đây vì CustomerOrder tự quản lý
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,13 +29,16 @@ public class CustomerOrderService {
     private final CustomerOrderRepository customerOrderRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    // private final ShoppingCartService shoppingCartService; // Cân nhắc inject nếu cần xóa cart sau khi order
 
     public CustomerOrderService(CustomerOrderRepository customerOrderRepository,
                                 ProductRepository productRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository
+            /*, ShoppingCartService shoppingCartService */) {
         this.customerOrderRepository = customerOrderRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
+        // this.shoppingCartService = shoppingCartService;
     }
 
     @Transactional
@@ -49,6 +52,10 @@ public class CustomerOrderService {
 
         double totalAmount = 0.0;
 
+        if (orderRequestDTO.items() == null || orderRequestDTO.items().isEmpty()) {
+            throw new IllegalArgumentException("Order must contain at least one item.");
+        }
+
         for (OrderItemRequestDTO itemDTO : orderRequestDTO.items()) {
             Product product = productRepository.findById(itemDTO.productId())
                     .orElseThrow(() -> new EntityNotFoundException("Product not found with ID: " + itemDTO.productId()));
@@ -57,21 +64,30 @@ public class CustomerOrderService {
                 throw new InsufficientStockException("Insufficient stock for product: " + product.getName() +
                         ". Available: " + product.getStockQuantity() + ", Requested: " + itemDTO.quantity());
             }
+            if (itemDTO.quantity() <= 0) {
+                throw new IllegalArgumentException("Item quantity must be positive for product: " + product.getName());
+            }
 
             OrderItem orderItem = new OrderItem();
             orderItem.setProduct(product);
             orderItem.setQuantity(itemDTO.quantity());
-            orderItem.setPriceAtPurchase(product.getPrice());
+            orderItem.setPriceAtPurchase(product.getPrice()); // Lưu giá tại thời điểm mua
 
-            customerOrder.addOrderItem(orderItem);
+            customerOrder.addOrderItem(orderItem); // Phương thức helper trong CustomerOrder sẽ set quan hệ hai chiều
             totalAmount += (product.getPrice() * itemDTO.quantity());
 
+            // Giảm số lượng tồn kho
             product.setStockQuantity(product.getStockQuantity() - itemDTO.quantity());
-            productRepository.save(product);
+            productRepository.save(product); // Lưu thay đổi của sản phẩm
         }
 
         customerOrder.setTotalAmount(totalAmount);
+        // customerOrder.setStatus(OrderStatus.PENDING); // Đã được xử lý bởi @PrePersist
         CustomerOrder savedOrder = customerOrderRepository.save(customerOrder);
+
+        // Optional: Xóa giỏ hàng sau khi đặt hàng thành công
+        // shoppingCartService.clearCart(username);
+
         return mapToOrderResponseDTO(savedOrder);
     }
 
@@ -91,13 +107,17 @@ public class CustomerOrderService {
                 .orElseThrow(() -> new EntityNotFoundException("Order not found with ID: " + orderId));
 
         if (!order.getUser().getId().equals(currentUser.getId())) {
-            throw new SecurityException("User does not have permission to view this order.");
+            // Dùng SecurityException hoặc AccessDeniedException của Spring
+            throw new org.springframework.security.access.AccessDeniedException("User does not have permission to view this order.");
         }
         return mapToOrderResponseDTO(order);
     }
 
+    // --- Admin specific methods ---
+
     public List<OrderResponseDTO> getAllOrdersForAdmin() {
-        return customerOrderRepository.findAll().stream()
+        // Cân nhắc thêm Pageable để phân trang nếu số lượng đơn hàng lớn
+        return customerOrderRepository.findAll().stream() // Có thể sắp xếp theo ngày đặt hàng hoặc ID
                 .map(this::mapToOrderResponseDTO)
                 .collect(Collectors.toList());
     }
@@ -112,29 +132,38 @@ public class CustomerOrderService {
     public OrderResponseDTO updateOrderStatusForAdmin(Long orderId, OrderStatus newStatus) {
         CustomerOrder order = customerOrderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
+
+        // Thêm logic kiểm tra chuyển đổi trạng thái hợp lệ nếu cần
+        // Ví dụ: không thể chuyển từ COMPLETED sang PENDING
+        // if (order.getStatus() == OrderStatus.COMPLETED && newStatus == OrderStatus.PENDING) {
+        //     throw new IllegalArgumentException("Cannot revert a completed order to pending.");
+        // }
+
         order.setStatus(newStatus);
         CustomerOrder updatedOrder = customerOrderRepository.save(order);
         return mapToOrderResponseDTO(updatedOrder);
     }
 
+    // Helper method để map CustomerOrder sang OrderResponseDTO
     private OrderResponseDTO mapToOrderResponseDTO(CustomerOrder order) {
         List<OrderItemResponseDTO> itemDTOs = order.getOrderItems().stream()
                 .map(item -> new OrderItemResponseDTO(
                         item.getId(),
-                        new ProductInfoDTO(
+                        new ProductInfoDTO( // ProductInfoDTO cần được định nghĩa
                                 item.getProduct().getId(),
                                 item.getProduct().getName(),
                                 item.getProduct().getImageUrl()
+                                // Thêm các thông tin sản phẩm khác nếu cần
                         ),
                         item.getQuantity(),
                         item.getPriceAtPurchase(),
-                        item.getQuantity() * item.getPriceAtPurchase()
+                        item.getQuantity() * item.getPriceAtPurchase() // Tính toán subtotal cho item
                 ))
                 .collect(Collectors.toList());
 
         return new OrderResponseDTO(
                 order.getId(),
-                order.getUser().getUsername(),
+                order.getUser().getUsername(), // Hoặc ID của user tùy theo nhu cầu hiển thị
                 order.getOrderDate(),
                 order.getStatus(),
                 order.getTotalAmount(),

@@ -123,4 +123,6 @@ GET http://localhost:8080/api/orders/admin/<orderIdFromStep3.2>
 PUT http://localhost:8080/api/orders/admin/<orderIdFromStep3.2>/status
 Content-Type: application/json
 
-{ "status": "SHIPPED" }
+{ "status": "SHIPPED" } 
+
+test google : http://localhost:8080/oauth2/authorization/google

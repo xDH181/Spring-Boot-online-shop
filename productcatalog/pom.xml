@@ -6,8 +6,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.3.10</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
+		<relativePath/> </parent>
 	<groupId>com.ecom</groupId>
 	<artifactId>productcatalog</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
@@ -59,8 +58,7 @@
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-jackson</artifactId> <!-- or jjwt-gson if bạn dùng Gson -->
-			<version>0.12.5</version>
+			<artifactId>jjwt-jackson</artifactId> <version>0.12.5</version>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
@@ -81,6 +79,10 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-client</artifactId>
 		</dependency>
 	</dependencies>
 
